@@ -1,5 +1,7 @@
 # Midnite Senior Data Engineer Technical Take Home
 
+> **Please do not post your solution to this challenge publicly on GitHub or any other public platform.**
+
 ## Challenge Goal
 
 This technical challenge is designed to allow you to showcase your Python, SQL and general data engineering skills.
@@ -15,8 +17,10 @@ These could include:
 - Data quality testing / monitoring
 - etc
 
-If you don't have time to implement everything, that's fine. We don't expect you to spend days on the task.
-Feel free to explain what you would consider or do differently to make this a full production quality setup if you had more time in the `NOTES.md` file.
+We expect this challenge to take approximately 3-4 hours - but that's not a hard limit.
+We value design thinking and knowing what to prioritise over completeness - a well-reasoned partial solution beats a rushed one, provided you fully document any shortcomings or missing production grade considerations in the NOTE.md file
+
+If you don't have time to implement everything, that's fine. Feel free to explain what you would consider or do differently to make this a full production quality setup if you had more time in the `NOTES.md` file.
 These will make great talking points during the final interview.
 
 ## Setup
@@ -43,13 +47,14 @@ Feel free to adapt the `Makefile`, `Dockerfile` or any part of the code as you s
 
 ### Part 1: Data Ingestion
 
-With the attached example `src/landed_files/bets.csv` file write a Python daemon that:
-1. Monitors the `landed_files` directory for new files
-2. When a new file arrives in the directory, the daemon should read the file and insert the data into the `raw.bet` table in the database
+Using the attached example `src/landed_files/bets.csv` file, write a Python CLI script (`ingest.py`) that:
+1. Accepts a file path as a command-line argument (e.g. `python ingest.py --file src/landed_files/bets.csv`)
+2. Reads the file and inserts the data into the `raw.bet` table in the database
+3. Is idempotent — re-running the script with the same file should not insert duplicate rows
 
 Feel free to use any libraries or packages you feel are necessary to complete this task, but be ready to justify your choices.
 
-As mentioned in the `Challenge Goal` section above, treat this as a mini-production setup and showcase relevant engineering best practices. 
+As mentioned in the `Challenge Goal` section above, treat this as a mini-production setup and showcase relevant engineering best practices.
 
 ### Part 2: Data Cleaning & Modeling
 
