@@ -5,6 +5,12 @@ services:
     tty: true
     volumes:
       - "${PWD}/src:/opt/src/"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     depends_on:
       - postgres
   postgres:
@@ -14,9 +20,9 @@ services:
        - "${PWD}/db-data:/var/lib/postgresql/data"
        - "./init_scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql"
     ports:
-      - "54322:5432"
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d analytics"]
       interval: 10s
       retries: 10
       start_period: 10s

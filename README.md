@@ -18,7 +18,7 @@ These could include:
 - etc
 
 We expect this challenge to take approximately 3-4 hours - but that's not a hard limit.
-We value design thinking and knowing what to prioritise over completeness - a well-reasoned partial solution beats a rushed one, provided you fully document any shortcomings or missing production grade considerations in the NOTE.md file
+We value design thinking and knowing what to prioritise over completeness - a well-reasoned partial solution beats a rushed one, provided you fully document any shortcomings or missing production grade considerations in the `NOTES.md` file
 
 If you don't have time to implement everything, that's fine. Feel free to explain what you would consider or do differently to make this a full production quality setup if you had more time in the `NOTES.md` file.
 These will make great talking points during the final interview.
@@ -28,7 +28,20 @@ These will make great talking points during the final interview.
 **NOTE: The below instructions have only been tested on MacOS.**
 
 1. Run `make build; make up` to start the docker containers
-2. Run `make shell` and then run `cd analytics; dbt debug; cd ../; python3 run.py` to confirm everything is setup as expected
+2. Run `make shell` and then run `pytest` to confirm the Python environment is set up as expected
+3. Run `make show-tables` to inspect the tables in the postgres instance.
+4. Use the following to connect to a DB editor:
+```
++----------+-----------+
+| Setting  | Value     |
++----------+-----------+
+| HOST     | localhost |
+| PORT     | 5432      |
+| USER     | postgres  |
+| PASSWORD | postgres  |
+| DATABASE | analytics |
++----------+-----------+
+```
 
 Note: If you want to reset the database, including re-loading the dummy data in the `raw` schema, then run `make reset-db`.
 
@@ -39,34 +52,52 @@ Feel free to adapt the `Makefile`, `Dockerfile` or any part of the code as you s
 - You are working as part of the data team at Better Betting Ltd.
 - Better Betting provides online betting and gambling services.... Just like Midnite.
 - Better Betting currently operates in Ireland and in the UK. The company does not have a license to operate in any other country at this stage, so we should not have any users from other countries.
-- Since Better Betting operates in multiple countries, it needs to do all of its reporting and analytics in USD. So any reports generated must be in USD.
 - All the raw data tables are described in the `Raw Data Sources` section at the end of this file.
 - There can be a delay from when a bet is placed to when it is settled. For example, a user places a bet on football on 2024-01-01, but the game doesn't finish until 2024-01-02. The bet is settled on 2024-01-02.
 
 ## Requirements
 
-### Part 1: Data Ingestion
+### Data Ingestion
 
 Using the attached example `src/landed_files/bets.csv` file, write a Python CLI script (`ingest.py`) that:
-1. Accepts a file path as a command-line argument (e.g. `python ingest.py --file src/landed_files/bets.csv`)
+1. Accepts a file path as a command-line argument. Run it from inside the container shell (`make shell`), where the repo's `src/` directory is mounted as the working directory `/opt/src`, so paths are relative to `src/` — e.g. `python ingest.py --file landed_files/bets.csv`
 2. Reads the file and inserts the data into the `raw.bet` table in the database
 3. Is idempotent — re-running the script with the same file should not insert duplicate rows
+4. Validates the incoming data and enforces the relevant business rules as part of ingestion, rather than pushing that responsibility downstream. Using the background information above and the details in `Raw Data Sources`, consider validations such as:
+   - `winnings` cannot be `< 0`
+   - referential and domain integrity — e.g. `user_id`, `game_id` and (when set) `bet_outcome_id` should resolve against the pre-loaded `raw` tables, and users/currencies should be within the markets we operate in (IE / GB, `EUR` / `GBP`)
+   - settlement consistency — `bet_outcome_id` and `settled_at` are `NULL` until a bet has settled, and `settled_at` should not be earlier than `created_at`
 
-Feel free to use any libraries or packages you feel are necessary to complete this task, but be ready to justify your choices.
+   It is up to you how to handle rows that fail validation (e.g. reject, quarantine, fail the run, log). Document the approach you chose and why in `NOTES.md`.
+
+Feel free to use any libraries or packages you feel are necessary to complete this task, but be ready to justify your choices. Add any Python packages you need to `requirements.txt` and re-run `make build` to rebuild the image with them installed.
+
+**Connecting to the database from `ingest.py`:** when running inside the container (`make shell`), connect to Postgres using host `postgres` (the compose service name), port `5432`, database `analytics`. These values are provided to the container as the `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD` environment variables, so you don't need to hardcode them. (The `localhost` connection settings in the `Setup` section above are for connecting an external DB editor from your host machine.)
 
 As mentioned in the `Challenge Goal` section above, treat this as a mini-production setup and showcase relevant engineering best practices.
 
-### Part 2: Data Cleaning & Modeling
+### Simulating a Data Update
 
-In addition to the data loaded into `raw.bets` in Part 1, there are a number of pre-loaded tables in the `raw` schema.
+`src/landed_files/updated_bets.csv` simulates a subsequent batch of landed data that arrives
+**after** the initial `bets.csv` load. Ingest it after `bets.csv` (from inside `make shell`):
 
-Using the background information above and the details in `Raw Data Sources`, clean the incoming data and build an appropriately modeled layer in the `core` postgres schema.  
+```
+python ingest.py --file landed_files/bets.csv
+python ingest.py --file landed_files/updated_bets.csv
+```
 
-The models in this `core` schema will serve as the cleaned and conformed data layer of the data warehouse and will be used to generate downstream reports, marts, dashboards and other analytics.
+It is designed to exercise how your pipeline handles change over time — your ingestion should be
+idempotent and update-aware, not insert-only. The file contains:
 
-Briefly justify why you used the data modeling paradigm that you did in the `NOTES.md`
+- **Settlements** of bets that were previously open in `bets.csv` (same `id`, now with
+  `bet_outcome_id`, `winnings` and `settled_at` populated).
+- **Corrections** to bets that were already settled (e.g. a changed `winnings` value or `outcome`).
+- **New bets** with `id`s not present in `bets.csv`.
+- **Rows identical** to `bets.csv` — re-running must not create duplicates.
+- A few rows that **violate the business rules**, so validation is exercised on the update run too.
 
-As with part 1, make sure to showcase your wider engineering skills, data modeling, and dbt knowledge.
+Re-running this file should be safe: existing bets are updated in place, new bets are inserted, and no
+duplicate `id`s are created.
 
 ## Raw Source Data
 
