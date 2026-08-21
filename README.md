@@ -70,7 +70,7 @@ This doesn't mean 100% production ready, but you should showcase or at a minimum
 
 ## Bets
 
-The below summarises the Postgres table columns, data types and business rules / notes which will help you with the above requirements. 
+The below summarises the Postgres table columns, data types and business rules / notes for the `raw.bet` table, which will help you with the above requirements. 
 
 | Column         | Data Type | Notes                                                                                  |
 | -------------- | --------- | -------------------------------------------------------------------------------------- |
